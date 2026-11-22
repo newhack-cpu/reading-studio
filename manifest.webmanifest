@@ -1,0 +1,16 @@
+{
+  "name": "大屏阅读精读与模考台 · 考研与四六级",
+  "short_name": "阅读精读台",
+  "scope": "./",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7f4ec",
+  "theme_color": "#265645",
+  "icons": [
+    {
+      "src": "lib/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

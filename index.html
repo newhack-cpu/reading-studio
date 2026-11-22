@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#265645">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>大屏阅读与六级听力精听台 · 考研与四六级（电脑/平板/手机）</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="lib/favicon.svg">
+  <link rel="stylesheet" href="reading.css">
+  <script defer src="lib/deck.js"></script>
+  <script defer src="lib/lookup-model.js"></script>
+  <script defer src="lib/sync-model.js"></script>
+  <script defer src="reading-bank.js"></script>
+  <script defer src="listening-bank.js"></script>
+  <script defer src="listening.js"></script>
+  <script defer src="reading.js"></script>
+</head>
+<body>
+  <!-- Phone Lock Screen (auto-shown on phones < 600dp) -->
+  <div id="phone-lock" class="phone-lock" hidden>
+    <div class="lock-card">
+      <div class="lock-badge">手机端 · 专注听力与背词</div>
+      <h1>长阅读仅限大屏，但六级听力可直接练！</h1>
+      <p>手机小屏不适合对照原文划线做长阅读，但你可以直接在手机打开内置的<strong>「六级听力精听台」（5 套真题 125 题 + 磨耳朵 8 场景 + 变速/A-B复读）</strong>，听完划词直接经 GitHub 同步回手机词卡。</p>
+      <div style="margin:18px 0 12px">
+        <button type="button" class="solid-sm" id="btn-phone-listen" style="width:100%;min-height:46px;font-size:15px">🎧 手机进入「六级听力精听台」</button>
+      </div>
+      <p class="lock-sub">长篇四六级与考研英一精读请用电脑或平板大屏打开本网址。</p>
+    </div>
+  </div>
+
+  <!-- Main Shell (Desktop & Tablet) -->
+  <div id="app" class="tablet-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">读</span>
+        <div>
+          <h1>阅读精读与模考台</h1>
+          <p id="top-sub">电脑 / 平板通用大屏版 · 与手机词卡经 GitHub 私有库互通</p>
+        </div>
+      </div>
+      <nav class="top-tabs" role="tablist" data-tour="nav">
+        <button type="button" class="top-tab" data-view="library" aria-selected="true">阅读题库</button>
+        <button type="button" class="top-tab" data-view="studio" aria-selected="false">正在精读</button>
+        <button type="button" class="top-tab" data-view="listening" aria-selected="false">六级听力</button>
+        <button type="button" class="top-tab" data-view="mistakes" aria-selected="false">错题本 <span id="mistake-badge" class="tab-badge warn-badge">0</span></button>
+        <button type="button" class="top-tab" data-view="vocab" aria-selected="false">生词队列 <span id="vocab-badge" class="tab-badge">0</span></button>
+        <button type="button" class="top-tab" data-view="analytics" aria-selected="false">学情与同步</button>
+      </nav>
+      <div class="top-actions">
+        <button type="button" class="help-pill" id="btn-grammar-top" data-tour="grammar" title="时态语态与长难句考场 6 大坑速查">
+          <span class="help-seal green">法</span><span>语法速查</span>
+        </button>
+        <button type="button" class="help-pill" id="btn-tour" title="30 秒看懂科学刷题与精读顺序">
+          <span class="help-seal">问</span><span>怎么用</span>
+        </button>
+        <button type="button" class="pill-btn" id="btn-quick-sync" data-tour="sync" title="与 GitHub 私有库双向同步">
+          <span class="dot" id="sync-dot"></span><span id="sync-label">GitHub 同步</span>
+        </button>
+        <button type="button" class="icon-pill" id="btn-theme" title="切换浅色 / 深色">◐</button>
+      </div>
+    </header>
+
+    <main id="main" class="main-stage"></main>
+  </div>
+
+  <!-- Word Lookup Popover (docked bottom-left so it NEVER covers right-side questions; click outside or Esc to hide) -->
+  <div id="word-pop" class="word-pop" hidden role="dialog" aria-label="单词快查">
+    <div class="pop-head">
+      <div>
+        <h3 id="pop-word" lang="en"></h3>
+        <p id="pop-ipa" class="pop-ipa"></p>
+      </div>
+      <div class="pop-sound">
+        <button type="button" class="mini-btn" id="pop-speak-uk">英 ▶</button>
+        <button type="button" class="mini-btn" id="pop-speak-us">美 ▶</button>
+        <button type="button" class="mini-hide" id="pop-close" aria-label="收起">收起 ✕</button>
+      </div>
+    </div>
+    <p id="pop-lemma" class="pop-lemma" hidden></p>
+    <div id="pop-body" class="pop-body"></div>
+    <div class="pop-foot">
+      <button type="button" class="solid-sm" id="pop-collect">+ 加入生词队列</button>
+      <button type="button" class="ghost-sm" id="pop-writing">★ 标为写作语料</button>
+    </div>
+  </div>
+
+  <!-- Floating Selection Toolbar for Multi-Word Phrases & Notes -->
+  <div id="sel-bar" class="sel-bar" hidden role="toolbar" aria-label="划选短语收藏">
+    <span id="sel-preview" class="sel-preview"></span>
+    <button type="button" class="sel-btn primary" id="sel-add-phrase">+ 收为短语/笔记</button>
+    <button type="button" class="sel-btn" id="sel-add-writing">★ 写作语料</button>
+    <button type="button" class="sel-close" id="sel-close" aria-label="关闭">✕</button>
+  </div>
+
+  <!-- Add / Edit Vocab & Phrase Modal -->
+  <dialog id="vocab-modal" class="modal-box" aria-labelledby="vm-title">
+    <div class="modal-head">
+      <h3 id="vm-title">添加 / 编辑生词与短语</h3>
+      <button type="button" class="mini-hide" id="vm-close">关闭 ✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="field-row"><label for="vm-word">英文单词 / 划选短语 / 写作短句</label><input id="vm-word" placeholder="例如 at the expense of / provoke justified outrage"></div>
+      <div class="field-row"><label for="vm-gloss">中文释义 / 熟词僻义 / 短语笔记</label><input id="vm-gloss" placeholder="例如 以……为代价（可写语境笔记）"></div>
+      <div class="field-row"><label for="vm-sentence">原句语境（自动带入或手填）</label><textarea id="vm-sentence" rows="2" placeholder="可保留真题原句方便回想语境"></textarea></div>
+      <label class="chk-row"><input type="checkbox" id="vm-writing"> <span>标为 ★ 写作语料（方便后期作文专项复看）</span></label>
+    </div>
+    <div class="btn-row" style="justify-content:flex-end;margin-top:14px">
+      <button type="button" class="ghost-sm" id="vm-cancel">取消</button>
+      <button type="button" class="solid-sm" id="vm-save">保存入队</button>
+    </div>
+  </dialog>
+
+  <!-- Built-in Grammar Quick Reference Modal (Tenses, Voices, Negation & Long Sentences) -->
+  <dialog id="grammar-modal" class="modal-box modal-wide" aria-labelledby="gm-title">
+    <div class="modal-head">
+      <div>
+        <h3 id="gm-title">时态语态 & 长难句考场 6 大坑速查卡</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin-top:2px">专为六级 & 考研英语一阅读设计：只讲最容易把选项看反的硬核句法</p>
+      </div>
+      <button type="button" class="mini-hide" id="gm-close">关闭 ✕</button>
+    </div>
+    <div class="gm-tabs" role="tablist">
+      <button type="button" class="filter-chip active" data-gm-tab="tense">① 时态与语态 4 大坑</button>
+      <button type="button" class="filter-chip" data-gm-tab="neg">② 隐性否定 & 指代跨越</button>
+      <button type="button" class="filter-chip" data-gm-tab="long">③ 长难句 3 步断句法</button>
+      <button type="button" class="filter-chip" data-gm-tab="order">④ 手机+大屏标准学习顺序</button>
+    </div>
+    <div id="gm-body" class="gm-body"></div>
+  </dialog>
+
+  <!-- First-Visit Non-Intrusive Invite Note (Cite-Checkup Style) -->
+  <aside id="tour-invite" class="tour-invite" hidden aria-labelledby="tour-invite-title">
+    <div class="ti-head">
+      <span class="ti-seal" aria-hidden="true">读</span>
+      <div>
+        <p id="tour-invite-title" class="ti-title">第一次来？</p>
+        <p class="ti-sub">花 30 秒，按「背词 → 闭卷一刷 → 精读划短语 → 同步复习」带你看一遍怎么用。</p>
+      </div>
+    </div>
+    <div class="ti-foot">
+      <button type="button" class="ti-skip" id="btn-invite-skip">先不用</button>
+      <button type="button" class="ti-go" id="btn-invite-go">带我看看</button>
+    </div>
+  </aside>
+
+  <!-- Interactive Spotlight + Hand-Drawn Brush Loop Tour Overlay -->
+  <div id="tour-root" class="tour-root" hidden>
+    <div class="tour-blocker" aria-hidden="true"></div>
+    <div id="tour-spot" class="tour-spot" aria-hidden="true"></div>
+    <svg id="tour-loop" class="tour-loop" aria-hidden="true">
+      <defs>
+        <filter id="tour-brush" x="-5%" y="-5%" width="110%" height="110%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="5" />
+          <feDisplacementMap in="SourceGraphic" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+      <path id="tour-loop-path" pathLength="1" filter="url(#tour-brush)" />
+    </svg>
+    <div id="tour-card" class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-body">
+      <div class="tc-head">
+        <span id="tour-num" class="tc-num" aria-hidden="true">壹</span>
+        <span id="tour-step-meta" class="tc-meta">第 1 步 · 共 6 步</span>
+        <button type="button" class="tc-skip" id="btn-tour-skip">跳过引导</button>
+      </div>
+      <h2 id="tour-title" class="tc-title"></h2>
+      <p id="tour-body" class="tc-body"></p>
+      <div class="tc-foot">
+        <span id="tour-dots" class="tc-dots" aria-hidden="true"></span>
+        <button type="button" class="tc-prev" id="btn-tour-prev">上一步</button>
+        <button type="button" class="tc-next" id="btn-tour-next">下一步</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden File Inputs -->
+  <input type="file" id="pack-file-input" accept=".json" hidden>
+  <input type="file" id="backup-file-input" accept=".json" hidden>
+  <input type="file" id="local-audio-input" accept="audio/*" hidden>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
