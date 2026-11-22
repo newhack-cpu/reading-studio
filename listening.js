@@ -408,11 +408,11 @@ window.ListeningStudio = (() => {
       leftBody = `
         <div class="lt-exam-shield">
           <div class="lt-shield-badge">🔒 考场首听模式 · 听稿已锁定</div>
-          <h3>先竖向预读右侧选项，再点播放一遍锁答案</h3>
+          <h3>用「4 字主题坐标 + 双题盯防」，绝不丢题号！</h3>
           <ul class="lt-shield-tips">
-            <li><b>1. 竖向扫差异</b>：把右侧 A/B/C/D 相同主语跳过，只盯动词、形容词与核心名词差异；点选项右侧 <code>✕</code> 可实时划掉排除项。</li>
-            <li><b>2. 盯死 5 类必出答案信号词</b>：<code>but / however / in fact</code> 转折后、<code>because / due to</code> 因果后、开头前 3 句与结尾末 2 句、最高级强调词、<code>suggest / advise / better</code> 建议句。</li>
-            <li><b>3. 放过没听清的词</b>：不要卡在上一句，立刻跟下一句，拿不准的题点 <code>犹</code> 标记，交卷后自动解锁听稿与逐句跟读！</li>
+            <li><b>1. 先把每题压成 1 个主题坐标</b>：别试图背 16 行英文！竖向看每题 4 个选项共同聊什么（如 ①现状 → ②保密 → ③坏后果 → ④打算），用右侧 <code>✕</code> 随时划掉排除项。</li>
+            <li><b>2. 双题盯防防迷路</b>：只盯「当前题 + 下一题主题词」；遇到听不懂的长难句当成铺垫放过，只要没撞到下一题主题词就稳住别慌，一撞到立刻切下一题。</li>
+            <li><b>3. 交卷后 4 步去翻译精听</b>：选错/糊掉的 3–5 句，开 <code>0.85x</code> + 点 <code>🔁</code> 单句循环大声跟读 3 遍，再切回 <code>1.0x</code> 闭眼盲听。</li>
           </ul>
           <div style="margin-top:14px">
             <button type="button" class="ghost-sm" data-lt-act="force-transcript">提前展开听稿（直接精听跟读）</button>
