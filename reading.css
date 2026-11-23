@@ -528,7 +528,40 @@ h1, h2, h3, h4, p { margin: 0; }
 body.phone-listen-mode .topbar { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
 body.phone-listen-mode .brand p, body.phone-listen-mode #btn-grammar-top, body.phone-listen-mode #btn-tour { display: none; }
 body.phone-listen-mode .main-stage { padding: 10px 12px 24px; }
+
+/* Post-Submit Study Coach & Knowledge Guide Card (Listening + Reading) */
+.coach-card { margin-bottom: 14px; padding: 14px 16px; border: 1.5px solid var(--green-line); border-radius: 14px; background: var(--hero-grad); box-shadow: var(--shadow); display: grid; gap: 11px; }
+.coach-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.coach-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 11.5px; font-weight: 700; margin-bottom: 4px; }
+.coach-title { margin: 0; font-size: 15.5px; color: var(--ink); line-height: 1.4; }
+.coach-diag { margin: 0; font-size: 13.5px; line-height: 1.65; color: var(--text); padding: 8px 11px; border-radius: 9px; background: var(--surface); border-left: 3px solid var(--amber); }
+.coach-steps { display: grid; gap: 7px; }
+.coach-step { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 8px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
+.coach-step.done { border-color: var(--green-line); background: var(--green-soft); }
+.cs-num { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--green); color: #fff; font-size: 12px; font-weight: 800; }
+:root[data-theme="dark"] .cs-num { color: #0f231a; }
+.cs-body { flex: 1; min-width: 180px; display: grid; gap: 2px; }
+.cs-body b { font-size: 13px; color: var(--ink); }
+.cs-body span { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.coach-act-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.coach-kp-wrap { display: grid; gap: 10px; padding-top: 6px; border-top: 1px dashed var(--line-strong); }
+.coach-kp-sec h4 { margin: 0 0 6px; font-size: 13px; font-weight: 800; color: var(--green); }
+.coach-exam-pt { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text); }
+.coach-kp-list { display: grid; gap: 6px; }
+.coach-kp-item { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); font-size: 12.5px; line-height: 1.5; }
+.coach-tag { flex: none; padding: 1px 7px; border-radius: 6px; background: var(--amber-soft); color: var(--amber); font-size: 11.5px; font-weight: 700; }
+.coach-expr { flex: none; font-family: var(--serif); color: var(--green); font-size: 13.5px; }
+.coach-arrow { color: var(--green); font-weight: 800; }
+.coach-kp-txt { flex: 1; min-width: 150px; color: var(--text); }
+.coach-vocab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 7px; }
+.coach-vocab-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border-radius: 9px; background: var(--surface); border: 1px solid var(--line); }
+.cv-main { min-width: 0; display: grid; gap: 2px; }
+.cv-word-btn { border: 0; background: none; padding: 0; text-align: left; color: var(--ink); font-size: 14px; font-family: var(--serif); cursor: pointer; }
+.cv-word-btn small { font-family: var(--sans); font-size: 11px; color: var(--muted); }
+.cv-gloss { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 @media (max-width: 820px) {
   .lt-studio-grid, .lt-warmup-layout { grid-template-columns: 1fr; }
   .lt-transcript { max-height: 46vh; }
+  .coach-vocab-grid { grid-template-columns: 1fr; }
 }
