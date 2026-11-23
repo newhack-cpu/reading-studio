@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tablet-reading-pwa-v6';
+const CACHE_NAME = 'tablet-reading-pwa-v7';
 const CORE_ASSETS = [
   './',
   './index.html',
