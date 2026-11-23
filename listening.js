@@ -12,6 +12,7 @@ window.ListeningStudio = (() => {
   let forceShowTranscript = false;
   let showZhTranscript = true;
   let showPrinted2023 = false;
+  let showPostGuide = true;
   let draft = null; // { secId, answers: {qno: 'A'}, marks: {qno: 'hesitant'}, struck: {'qno:A': true}, startedAt, submittedId }
 
   // Shared HTML5 audio element & playback controls
@@ -170,8 +171,9 @@ window.ListeningStudio = (() => {
     };
     listenState().attempts.unshift(att);
     draft.submittedId = att.id;
+    showPostGuide = true;
     B().saveState();
-    B().toast(`交卷完成：${score} / ${sec.questions.length}（约 ${att.cetPoints} / ${att.maxCetPoints} 分，听稿与逐句跟读已解锁）`);
+    B().toast(`交卷完成：${score} / ${sec.questions.length}（约 ${att.cetPoints} / ${att.maxCetPoints} 分，已为你生成本段复盘引导与知识点）`);
     B().rerender();
   }
 
@@ -387,6 +389,121 @@ window.ListeningStudio = (() => {
       </div>`;
   }
 
+  function renderPostGuide(setObj, sec, att) {
+    const esc = B().esc;
+    const g = sec.guide || {};
+    const collected = B().collectedSet();
+    const wrongQs = (att.items || []).filter(x => !x.correct).map(x => `Q${x.no}`);
+    const hesQs = (att.items || []).filter(x => x.correct && x.mark === 'hesitant').map(x => `Q${x.no}`);
+    const pct = att.total ? Math.round((att.score / att.total) * 100) : 0;
+    const needFollowCount = wrongQs.length + hesQs.length;
+    const taggedCount = (att.items || []).filter(x => (!x.correct || x.mark === 'hesitant') && (x.errorTags || []).length).length;
+
+    let diagTitle = '';
+    let diagMsg = '';
+    if (pct === 100 && !hesQs.length) {
+      diagTitle = '🎉 本段全对稳过！';
+      diagMsg = '别急着关——花 3 分钟扫一遍下方高频听觉词与连读点，待会路上用手机 1.0x 脱稿磨 1 遍彻底固化！';
+    } else if (pct === 100) {
+      diagTitle = `✓ 全对，但有 ${hesQs.length} 题拿不准（${hesQs.join('、')}）`;
+      diagMsg = '拿不准做对最容易在考场失手！重点核对下面这几题的同义替换，把卡住的那句开 0.85x 跟读 2 遍。';
+    } else if (pct >= 60) {
+      diagTitle = `📌 大意已抓住 · 重点修补 ${wrongQs.join('、')}${hesQs.length ? `（另拿不准 ${hesQs.join('、')}）` : ''}`;
+      diagMsg = '不要整篇硬听！先看错题解析标出是「原词陷阱」还是「连读没听出」，再对错句开 0.85x 单句循环跟读 3 遍。';
+    } else {
+      diagTitle = `🛠️ 失分偏多（错 ${wrongQs.join('、')}）· 立刻切降速精听`;
+      diagMsg = '完全正常！说明这段的语速或连读超出了耳朵当前舒适区。按下方 4 步先切 0.85x 啃透出题句和连读，再回 1.0x 盲听就会瞬间变清晰！';
+    }
+
+    const firstJumpT0 = (g.signalClues || []).find(c => c.t0 != null)?.t0 ?? (g.linkingTraps || []).find(c => c.t0 != null)?.t0 ?? 0;
+
+    const signalHtml = (g.signalClues || []).map(c => `
+      <div class="coach-kp-item">
+        <span class="coach-tag">${esc(c.label)}</span>
+        <span class="coach-kp-txt" lang="en">${esc(c.snippet)}</span>
+        ${c.t0 != null ? `<button type="button" class="lt-seg-time" data-lt-jump="${c.t0}" title="跳播此句">▶ ${fmtTime(c.t0)}</button>` : ''}
+      </div>`).join('');
+
+    const linkHtml = (g.linkingTraps || []).map(l => `
+      <div class="coach-kp-item">
+        <b class="coach-expr" lang="en">${esc(l.expr)}</b>
+        <span class="coach-kp-txt">${esc(l.tip)}</span>
+        ${l.t0 != null ? `<button type="button" class="lt-seg-time" data-lt-jump="${l.t0}" title="听原音连读">▶ ${fmtTime(l.t0)}</button>` : ''}
+      </div>`).join('');
+
+    const vocabHtml = (g.keyVocab || []).map(v => {
+      const added = collected.has(SyncModel.normWord(v.word));
+      return `<div class="coach-vocab-chip">
+        <div class="cv-main">
+          <button type="button" class="cv-word-btn" data-ltok="${esc(v.word)}"><b lang="en">${esc(v.word)}</b>${v.ipa ? ` <small>/${esc(v.ipa)}/</small>` : ''}</button>
+          <span class="cv-gloss">${esc(v.gloss)}</span>
+        </div>
+        <button type="button" class="${added ? 'ok-sm' : 'ghost-sm'}" data-lt-add-word="${esc(v.word)}" data-lt-add-gloss="${esc(v.gloss)}">${added ? '✓ 已收' : '+ 收词'}</button>
+      </div>`;
+    }).join('');
+
+    const nextIdx = activeSecIndex + 1;
+    const hasNext = nextIdx < setObj.sections.length;
+
+    return `
+      <section class="coach-card">
+        <div class="coach-head">
+          <div>
+            <span class="coach-badge">🧭 交卷复盘引导 & 本段知识点</span>
+            <h3 class="coach-title">${diagTitle}</h3>
+          </div>
+          <button type="button" class="ghost-sm" data-lt-act="toggle-guide">${showPostGuide ? '收起引导' : '展开引导与知识点'}</button>
+        </div>
+        ${showPostGuide ? `
+          <p class="coach-diag">${diagMsg}</p>
+
+          <div class="coach-steps">
+            <div class="coach-step ${needFollowCount === 0 || taggedCount >= needFollowCount ? 'done' : ''}">
+              <span class="cs-num">1</span>
+              <div class="cs-body">
+                <b>复盘错题 & 标错因</b>
+                <span>${needFollowCount ? `下方先核对 ${[...wrongQs, ...hesQs].join('、')} 的解析，并点一下错因标签（已标 ${taggedCount}/${needFollowCount}）` : '本段无错题/犹豫题，快速核对下方题干确认听懂即可'}</span>
+              </div>
+            </div>
+            <div class="coach-step">
+              <span class="cs-num">2</span>
+              <div class="cs-body">
+                <b>0.85x 慢速单句跟读（戒掉脑内翻中文）</b>
+                <span>左侧点错句旁的 <code>🔁</code> 开口跟读 3 遍，嘴顺了耳朵就能秒认连读</span>
+              </div>
+              <button type="button" class="ghost-sm" data-lt-act="coach-slow" data-lt-slow-t="${firstJumpT0}">🐢 切 0.85x 开跟读</button>
+            </div>
+            <div class="coach-step">
+              <span class="cs-num">3</span>
+              <div class="cs-body">
+                <b>收 3–5 个拦路听觉词回手机背</b>
+                <span>直接点下方「+ 收词」或点击左侧听稿里的英文词（当前队列共 ${collected.size} 词）</span>
+              </div>
+            </div>
+            <div class="coach-step">
+              <span class="cs-num">4</span>
+              <div class="cs-body">
+                <b>1.0x 脱稿盲听 1 遍 + 同步回手机</b>
+                <span>不看屏幕重听验证直接懂画面；点同步把生词送回 OPPO 词卡</span>
+              </div>
+              <div class="coach-act-row">
+                <button type="button" class="ghost-sm" data-lt-act="coach-blind">▶ 1.0x 脱稿复听</button>
+                <button type="button" class="ghost-sm" data-lt-act="coach-sync">☁️ 同步手机</button>
+                ${hasNext ? `<button type="button" class="solid-sm" data-lt-open-set="${esc(setObj.id)}" data-lt-open-idx="${nextIdx}">下一段 →</button>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="coach-kp-wrap">
+            ${g.examPoints ? `<div class="coach-kp-sec"><h4>🎯 本段题型考法</h4><p class="coach-exam-pt">${esc(g.examPoints)}</p></div>` : ''}
+            ${signalHtml ? `<div class="coach-kp-sec"><h4>📡 本段高频信号句与替换线索（点时间直听）</h4><div class="coach-kp-list">${signalHtml}</div></div>` : ''}
+            ${linkHtml ? `<div class="coach-kp-sec"><h4>🗣️ 连读 / 弱读 / 口语地道表达坑</h4><div class="coach-kp-list">${linkHtml}</div></div>` : ''}
+            ${vocabHtml ? `<div class="coach-kp-sec"><h4>📌 本段必会听觉核心词（点词看详解 · 一键收词回手机）</h4><div class="coach-vocab-grid">${vocabHtml}</div></div>` : ''}
+          </div>
+        ` : ''}
+      </section>`;
+  }
+
   function renderPractice() {
     const esc = B().esc;
     const { setObj, sec } = currentSetAndSec();
@@ -524,7 +641,7 @@ window.ListeningStudio = (() => {
       <div class="lt-studio-grid">
         <section class="lt-left-pane">${leftBody}</section>
         <section class="lt-right-pane">
-          ${submitted ? `<div class="lt-score-banner"><b>本段得分：${att.score} / ${att.total}</b><span>换算约 ${att.cetPoints} / ${att.maxCetPoints} 分 · 用时 ${Math.max(1, Math.round(att.durationSec / 60))} 分钟</span>${activeSecIndex + 1 < setObj.sections.length ? `<button type="button" class="solid-sm" data-lt-open-set="${esc(setObj.id)}" data-lt-open-idx="${activeSecIndex + 1}">下一段 →</button>` : ''}</div>` : ''}
+          ${submitted ? `<div class="lt-score-banner"><b>本段得分：${att.score} / ${att.total}</b><span>换算约 ${att.cetPoints} / ${att.maxCetPoints} 分 · 用时 ${Math.max(1, Math.round(att.durationSec / 60))} 分钟</span>${activeSecIndex + 1 < setObj.sections.length ? `<button type="button" class="solid-sm" data-lt-open-set="${esc(setObj.id)}" data-lt-open-idx="${activeSecIndex + 1}">下一段 →</button>` : ''}</div>${renderPostGuide(setObj, sec, att)}` : ''}
           ${qCards}
           ${!submitted ? `<div class="lt-submit-foot"><button type="button" class="solid-sm wide-btn" data-lt-act="submit">交卷批改并解锁听稿与解析</button></div>` : ''}
         </section>
@@ -649,6 +766,12 @@ window.ListeningStudio = (() => {
       }
       return true;
     }
+    if (btn.dataset.ltAddWord) {
+      B().addWordRecord(btn.dataset.ltAddWord, btn.dataset.ltAddGloss || '六级听力核心词', '', false);
+      B().toast(`已将「${btn.dataset.ltAddWord}」加入生词队列，同步后回流手机词卡`);
+      B().rerenderKeepScroll();
+      return true;
+    }
     if (btn.dataset.ltDelBm !== undefined && localFile) {
       localFile.bookmarks.splice(Number(btn.dataset.ltDelBm), 1);
       B().rerender();
@@ -658,6 +781,31 @@ window.ListeningStudio = (() => {
     const act = btn.dataset.ltAct;
     if (!act) return false;
     if (act === 'back-sets') { stopPlayback(); subMode = 'sets'; B().rerender(); return true; }
+    if (act === 'toggle-guide') { showPostGuide = !showPostGuide; B().rerenderKeepScroll(); return true; }
+    if (act === 'coach-slow') {
+      rate = 0.85;
+      audio.playbackRate = 0.85;
+      loopSeg = null;
+      const t = Number(btn.dataset.ltSlowT || 0);
+      audio.currentTime = Number.isFinite(t) ? t : 0;
+      audio.play().catch(() => {});
+      B().toast('已切 0.85x 慢速并跳至关键信号句：跟着大声读 3 遍，再点左侧 🔁 死磕错句');
+      B().rerenderKeepScroll();
+      return true;
+    }
+    if (act === 'coach-blind') {
+      rate = 1.0;
+      audio.playbackRate = 1.0;
+      loopSeg = null;
+      loopA = null;
+      loopB = null;
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+      B().toast('已切 1.0x 原速从头播放：眼睛离开听稿闭眼复听，检验直接听懂画面！');
+      B().rerenderKeepScroll();
+      return true;
+    }
+    if (act === 'coach-sync') { B().syncWithGitHub(false); return true; }
     if (act === 'play') {
       if (audio.paused) audio.play().catch(() => B().toast('音频加载中或离线缺失，请稍候重试'));
       else audio.pause();
