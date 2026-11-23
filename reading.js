@@ -87,6 +87,7 @@
   let highlightMode = false;
   let showTranslations = false;
   let showStudyPack = false;
+  let showReadingGuide = true;
   let examLockLookup = localStorage.getItem('reading-exam-lock-v1') === '1';
   let fontSize = 18;
   let timerHandle = null;
@@ -696,9 +697,10 @@
     const attempt = gradePassage(p, activeDraft, durationSec);
     state.reading.attempts.unshift(attempt);
     activeDraft.submittedAttemptId = attempt.id;
+    showReadingGuide = true;
     saveState();
     wordPop.hidden = true;
-    toast(`已交卷：${attempt.score} / ${attempt.total}（已解锁逐段译文与精读卡）`);
+    toast(`已交卷：${attempt.score} / ${attempt.total}（已生成本篇复盘引导与知识点卡）`);
     render();
   }
 
@@ -1034,6 +1036,126 @@
     </div>`;
   }
 
+  function renderReadingPostGuide(p, attempt, collected) {
+    if (!attempt) return '';
+    const wrongItems = (attempt.items || []).filter(x => !x.correct);
+    const hesItems = (attempt.items || []).filter(x => x.correct && x.mark === 'hesitant');
+    const weakTypes = [...new Set([...wrongItems, ...hesItems].map(x => x.type).filter(Boolean))];
+    const minUsed = Math.max(1, Math.round((attempt.durationSec || 0) / 60));
+    const limit = p.timeLimitMin || 15;
+    const paceNote = minUsed <= limit
+      ? `用时 ${minUsed} 分钟（≤ 建议 ${limit} 分钟，配速稳健）`
+      : `用时 ${minUsed} 分钟（超建议 ${limit} 分钟 ${minUsed - limit} 分钟，下篇注意先扫题干定位）`;
+    const pct = attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0;
+
+    let diagTitle = '';
+    let diagMsg = '';
+    if (pct === 100 && !hesItems.length) {
+      diagTitle = `🎉 全对 ${attempt.score}/${attempt.total} · ${paceNote}`;
+      diagMsg = '定位与理解都很稳！别跳过精读：花 5 分钟扫一遍下方核心长难句与高频同义替换，挑 2–3 个高级表达收进写作语料即可进入下一篇。';
+    } else if (pct >= 80) {
+      diagTitle = `✓ 稳健 ${attempt.score}/${attempt.total} · ${paceNote}`;
+      diagMsg = `重点收口 ${[...wrongItems, ...hesItems].map(x => `Q${x.no}`).join('、')}${weakTypes.length ? `（薄弱题型：${weakTypes.join('、')}）` : ''}——先点下方按钮跳看原文证据段，看清干扰项是怎么偷换概念的。`;
+    } else {
+      diagTitle = `🛠️ 本篇暴露缺口（${attempt.score}/${attempt.total}）· ${paceNote}`;
+      diagMsg = `错在 ${wrongItems.map(x => `Q${x.no}`).join('、')}${weakTypes.length ? `（集中于：${weakTypes.join('、')}）` : ''}。先别急着刷下一篇！按下面 4 步把这篇的长难句主干、同义替换和挡路生词彻底吃透，顶得上盲刷 5 篇！`;
+    }
+
+    const prog = sopProgress[p.id] || {};
+    const step1Done = Boolean(prog.located || attempt.items.some(x => (x.errorTags || []).length));
+    const step2Done = Boolean(prog.studied || showTranslations || showStudyPack);
+    const step3Done = Boolean(prog.collected || activeQueue().some(x => x.passageId === p.id));
+    const step4Done = Boolean(prog.synced || (ghConfig.lastSyncAt && ghConfig.lastSyncAt >= attempt.submittedAt));
+
+    const focusBtns = [...wrongItems, ...hesItems].map(it => {
+      const q = p.questions.find(x => x.no === it.no);
+      if (!q) return '';
+      return `<button type="button" class="ghost-sm" data-locate-para="${q.evidencePara}">🎯 看 Q${q.no} 证据段 [${q.evidencePara}]（${esc(q.type)}）</button>`;
+    }).join('');
+
+    const sp = p.studyPack || {};
+    const grammarPts = (sp.longSentences || []).map((s, idx) => `
+      <div class="coach-kp-item">
+        <span class="coach-tag">长难句 ${idx + 1}</span>
+        <span class="coach-kp-txt"><b>${esc(s.point || '句法主干')}</b> · ${esc((s.structure || s.en || '').slice(0, 95))}</span>
+      </div>`).join('');
+
+    const paraPts = (sp.paraphrases || []).slice(0, 4).map(row => `
+      <div class="coach-kp-item">
+        <code lang="en">${esc(row.original)}</code>
+        <span class="coach-arrow">→</span>
+        <code lang="en">${esc(row.option)}</code>
+      </div>`).join('');
+
+    const vocabPts = (sp.keyVocab || []).slice(0, 6).map(v => {
+      const added = collected.has(SyncModel.normWord(v.word));
+      return `<div class="coach-vocab-chip">
+        <div class="cv-main">
+          <b lang="en">${esc(v.word)}</b>
+          <span class="cv-gloss">${esc(v.gloss)}</span>
+        </div>
+        <button type="button" class="${added ? 'ok-sm' : 'ghost-sm'}" data-sp-add-word="${esc(v.word)}" data-sp-add-gloss="${esc(v.gloss)}">${added ? '✓ 已收' : '+ 收词'}</button>
+      </div>`;
+    }).join('');
+
+    return `
+      <section class="coach-card reading-coach">
+        <div class="coach-head">
+          <div>
+            <span class="coach-badge">🧭 交卷复盘引导 & 本篇必学知识点</span>
+            <h3 class="coach-title">${diagTitle}</h3>
+          </div>
+          <button type="button" class="ghost-sm" id="btn-toggle-rguide">${showReadingGuide ? '收起引导' : '展开复盘引导'}</button>
+        </div>
+        ${showReadingGuide ? `
+          <p class="coach-diag">${diagMsg}</p>
+          ${focusBtns ? `<div class="coach-act-row" style="margin-bottom:10px">${focusBtns}</div>` : ''}
+
+          <div class="coach-steps">
+            <div class="coach-step ${step1Done ? 'done' : ''}">
+              <span class="cs-num">1</span>
+              <div class="cs-body">
+                <b>回看错题 / 犹豫题证据段，并打错因标签</b>
+                <span>${wrongItems.length || hesItems.length ? `在下方给 ${[...wrongItems, ...hesItems].map(x => `Q${x.no}`).join('、')} 点选错因，自动同步到「错题本」与弱项统计` : '全对稳过，快速确认各题定位即可'}</span>
+              </div>
+            </div>
+            <div class="coach-step ${step2Done ? 'done' : ''}">
+              <span class="cs-num">2</span>
+              <div class="cs-body">
+                <b>吃透本篇长难句拆解与逐段译文</b>
+                <span>左侧一键展开精读卡对照时态、主干与同义替换</span>
+              </div>
+              <button type="button" class="ghost-sm" id="btn-rguide-open-study">📖 展开精读卡 + 译文</button>
+            </div>
+            <div class="coach-step ${step3Done ? 'done' : ''}">
+              <span class="cs-num">3</span>
+              <div class="cs-body">
+                <b>收 3–5 个拦路词 / 写作短语入队</b>
+                <span>点下方「+ 收词」，或直接鼠标/手指拖选左侧原文短语</span>
+              </div>
+            </div>
+            <div class="coach-step ${step4Done ? 'done' : ''}">
+              <span class="cs-num">4</span>
+              <div class="cs-body">
+                <b>同步回 OPPO 手机词卡 & 进入下一篇</b>
+                <span>把刚收的生词和错题推回手机，明早背词优先复现</span>
+              </div>
+              <div class="coach-act-row">
+                <button type="button" class="ghost-sm" id="btn-rguide-sync">☁️ 立即 GitHub 同步</button>
+                <button type="button" class="solid-sm" data-view-jump="library">回题库选下一篇 →</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="coach-kp-wrap">
+            ${grammarPts ? `<div class="coach-kp-sec"><h4>🔍 本篇核心语法 & 长难句考点</h4><div class="coach-kp-list">${grammarPts}</div></div>` : ''}
+            ${paraPts ? `<div class="coach-kp-sec"><h4>🔁 本篇真题同义替换（原文 → 选项）</h4><div class="coach-kp-list">${paraPts}</div></div>` : ''}
+            ${vocabPts ? `<div class="coach-kp-sec"><h4>📌 本篇核心词汇 / 熟词僻义（一键送回手机背）</h4><div class="coach-vocab-grid">${vocabPts}</div></div>` : ''}
+          </div>
+        ` : ''}
+      </section>`;
+  }
+
   function renderStudio() {
     if (activeSet) currentPassageId = activeSet.passageIds[activeSet.activeIndex];
     const p = passageById(currentPassageId) || allPassages()[0];
@@ -1173,7 +1295,7 @@
               ${attempt && !activeSet ? `<button type="button" class="ghost-sm" data-restart-passage="${esc(p.id)}">再刷一遍</button>` : ''}
             </div>
           </div>
-          <div class="questions-scroll">${qsHtml}</div>
+          <div class="questions-scroll">${renderReadingPostGuide(p, attempt, collected)}${qsHtml}</div>
           <div class="submit-bar">
             <span style="font-size:12.5px;color:var(--muted)">${attempt ? '点「定位原文」标亮证据段，错题自动收入「错题本」' : (activeSet ? '全部篇目答完后点「整套交卷核对」' : `建议 ${p.timeLimitMin} 分钟 · 顺手标「稳/犹」`)}</span>
             ${attempt
@@ -2052,6 +2174,9 @@
       }
       if (btn.id === 'btn-toggle-trans') { showTranslations = !showTranslations; if (showTranslations) markSop('studied'); renderKeepStudioScroll(); return; }
       if (btn.id === 'btn-toggle-study') { showStudyPack = !showStudyPack; if (showStudyPack) markSop('studied'); renderKeepStudioScroll(); return; }
+      if (btn.id === 'btn-toggle-rguide') { showReadingGuide = !showReadingGuide; renderKeepStudioScroll(); return; }
+      if (btn.id === 'btn-rguide-open-study') { showStudyPack = true; showTranslations = true; markSop('studied'); renderKeepStudioScroll(); toast('已在左侧为你展开本篇「精读卡（长难句/替换）」与「逐段译文」'); return; }
+      if (btn.id === 'btn-rguide-sync') { markSop('synced'); syncWithGitHub(false); return; }
       if (btn.id === 'mode-lookup') { highlightMode = false; renderKeepStudioScroll(); return; }
       if (btn.id === 'mode-hl') { highlightMode = true; wordPop.hidden = true; hideSelBar(); renderKeepStudioScroll(); return; }
       if (btn.id === 'font-dec') { fontSize = Math.max(14, fontSize - 2); renderKeepStudioScroll(); return; }
@@ -2337,7 +2462,7 @@
 
   // Expose bridge for Listening Studio module
   window.ReadingBridge = {
-    state, saveState, toast, esc, openWordPop, openVocabModal, updateBadges,
+    state, saveState, toast, esc, openWordPop, openVocabModal, addWordRecord, updateBadges,
     syncWithGitHub, collectedSet,
     rerender: () => render(),
     rerenderKeepScroll: () => {
